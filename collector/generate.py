@@ -1,55 +1,64 @@
 #!/usr/bin/env python3
+import sys
 import os
 import time
-from pprint import pprint
 
 from lib import sources
 from lib.processors.factory import build_processor
 from lib.processors.factory import build_source
-from lib import errors
-from lib import last_run
+from lib.util import errors
+from lib.util import last_run
+from lib.util.persistor import EntryUpserter
+from lib.util import database_initializer
+from lib.util import output
+
+start_time = None
 
 def main():
-	start_time = time.time()
-	[process(path) for path in sources.sources()]
-	output_errors()
-	last_run.set(start_time)
+	start_up()
 	
-def process(path):
-	try:
-		start_message(path)
+	with EntryUpserter() as upserter:
+		[process_source(upserter, path) for path in get_paths()]
 
-		config = sources.get_config(path)
+	finish()
+
+def start_up():
+	global start_time
+
+	start_time = time.time()
+	database_initializer.initialize()
+
+def get_paths():
+	if len(sys.argv) > 1:
+		output.message('Processing explicit source.')
+		return [sys.argv[1]]
+	return sources.sources()
+
+def process_source(upserter, source_path):
+	try:
+		start_message(source_path)
+
+		config = sources.get_config(source_path)
 		processor = build_processor(config)
 		source = build_source(config)
-		processor.process(source)
+		processor.process(upserter, source)
 
 	except sources.SourceError as e:
-		errors.add(e, path)
-		print_submessage(errors.errors[-1]['message'])
-		print_submessage('Skipping source.\n')
+		errors.add_exception(e)
+		output.submessage(errors.errors[-1]['message'])
+		output.submessage('Skipping source.\n')
 
 	except Exception as e:
-		errors.add(e, path)
+		errors.add_exception(e)
+
+
+def finish():
+	errors.output_all()
+	last_run.set(start_time)
 	
-
-def print_submessage(message):
-	print('> {}'.format(message))
-
 def start_message(path):
 	source_name = os.path.basename(path)
-	print('Processing source "{}"'.format(source_name))
+	output.message('Processing source "{}"'.format(source_name))
 
-def output_errors():
-	if len(errors.errors):
-		print('-'*80)
-		print('The following errors were encountered during generation:\n')
-		for error in errors.errors:
-			print('Source: {}\nMessage: {}'.format(error['source'], error['message']))
-			for trace in error['trace']:
-				print(trace)
-
-
-
-
-main()
+if __name__ == '__main__':
+	main()

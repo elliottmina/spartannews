@@ -1,8 +1,7 @@
 import time
 import os
-from pprint import pprint
 
-from lib import config
+from lib.util import config
 
 data_file = config.BASE_DIR + '/data/lastrun'
 

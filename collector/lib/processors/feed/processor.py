@@ -1,63 +1,48 @@
 import requests
 import feedparser
-from email.utils import parsedate_tz
-from email.utils import mktime_tz
+import dateutil.parser
+import time
 from pprint import pprint
 
-from lib.processors.feed.filters import filters
-from lib import persistor
+from lib.util.mutate import mutate
 
-instance = None
+def get_feed(source):
+	feed = feedparser.parse(source.url)
+	return mutate(source.rss_mutators, feed)
 
-def build():
-	if not instance:
-		instantiate()
-	return instance
+def build_html(source, entry):
+	html = get_html(entry)
+	return mutate(source.html_mutators, html)
 
-def instantiate():
-	global instance
-	instance = Processor(filters.get(), persistor)
+def build_timestamp(entry):
+	date = dateutil.parser.parse(entry.published)
+	return time.mktime(date.timetuple())
+
+def get_html(entry):
+	return requests.get(entry.link).text
 
 class Processor:
-	def __init__(self, filters, persistor):
+	def __init__(self, filters):
 		self.filters = filters
-		self.persistor = persistor
 
-	def process(self, source):
-		feed = self.get_feed(source)
-		[self.process_entry(source, entry) for entry in feed['entries']]
+	def process(self, upserter, source):
+		feed = get_feed(source)
+		[self.process_entry(upserter, source, entry) for entry in feed['entries']]
 
-	def get_feed(self, source):
-		feed = feedparser.parse(source.url)
-		return self.mutate(source.rss_mutators, feed)
-
-	def process_entry(self, source, entry):
+	def process_entry(self, upserter, source, entry):
 		print('> Processing entry "{}".'.format(entry.id))
+		pprint(entry)
 
 		if self.filters.is_blocked(entry):
 			return
 
-		self.persistor.upsert({
+		upserter.upsert({
 			'id': entry.id,
-			'link': entry.link,
+			'url': entry.link,
 			'author': entry.author,
 			'summary': entry.summary,
-			'content': self.build_html(source, entry),
-			'published': self.build_timestamp(entry),
+			'content': build_html(source, entry),
+			'published': build_timestamp(entry),
 			'title': entry.title,
 		})
 
-	def build_html(self, source, entry):
-		html = self.get_html(entry)
-		return self.mutate(source.html_mutators, html)
-
-	def build_timestamp(self, entry):
-		return mktime_tz(parsedate_tz(entry.published))
-
-	def get_html(self, entry):
-		return requests.get(entry.link).text
-
-	def mutate(self, mutators, mutatee):
-		for mutator in mutators:
-			mutatee = mutator.mutate(mutatee)
-		return mutatee

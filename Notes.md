@@ -1,8 +1,19 @@
 # Spartan news
 
+* for indexes, use URL as ID
+	* remove ID parsers from meta modules?
+* for indexes, use meta updated value with treshold
+* run meta extractor on feed item
+* add site to DB
+* add image to DB
+* Soupify everything
+* remove htmldom (pip)
+* switch to dateutil isntead of mail lib
+* filter headlines separately from body
+* limit description length
+
 ## Collector features
 * Allow sources to define filters
-* Analyzes for keywords. 
 
 ### serving
 * Fetch time slice

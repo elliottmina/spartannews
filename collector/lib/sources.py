@@ -2,10 +2,7 @@ import json
 from glob import glob
 import os
 
-from pprint import pprint
-
-
-from lib import config
+from lib.util import config
 
 def sources():
 	return glob(config.BASE_DIR + '/sources/*')

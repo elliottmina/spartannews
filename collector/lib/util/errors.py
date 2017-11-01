@@ -1,4 +1,3 @@
-import os
 import sys
 import traceback
 
@@ -6,13 +5,12 @@ from lib import sources
 
 errors = []
 
-def add(e, path):
+def add_exception(e):
 	exc_type, exc_value, exc_traceback = sys.exc_info()
 
 	errors.append({
-		'source':os.path.basename(path),
 		'message':get_message(e),
-		'trace':traceback.format_exception(exc_type, exc_value, exc_traceback)
+		'traces':traceback.format_exception(exc_type, exc_value, exc_traceback)
 	})
 
 def get_message(e):
@@ -29,3 +27,12 @@ def get_message(e):
 
 	return '{}: "{}"'.format(e.__class__.__name__, str(e))
 
+def output_all():
+	if not len(errors):
+		return
+
+	print('-'*80)
+	print('The following errors were encountered:\n')
+	for error in errors:
+		print(error['message'])
+		[print(trace) for trace in error['traces']]
